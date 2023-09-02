@@ -40,8 +40,6 @@ import java.util.List;
 public abstract class VRRenderer {
     public int nativeImageL, nativeImageR;
     public int width, height;
-    public int pbo1;
-    public int pbo2;
     public static final String RENDER_SETUP_FAILURE_MESSAGE = "Failed to initialise stereo rendering plugin: ";
     public RenderTarget cameraFramebuffer;
     public RenderTarget cameraRenderFramebuffer;

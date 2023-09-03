@@ -8,8 +8,6 @@ import net.minecraft.util.Tuple;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL15;
-import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL21;
 import org.lwjgl.openvr.*;
 import org.lwjgl.system.MemoryStack;
@@ -22,10 +20,8 @@ import org.vivecraft.client_vr.render.RenderPass;
 import org.vivecraft.utils.VLoader;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import static org.lwjgl.openvr.VRCompositor.*;
 import static org.lwjgl.openvr.VRSystem.*;
@@ -111,7 +107,8 @@ public class OpenVRStereoRenderer extends VRRenderer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        nativeImageL = VLoader.createGLImage(buffer);
+        eglImageL = VLoader.createEGLImage(buffer);
+        nativeImageL = VLoader.createGLImage(eglImageL, width, height);
         this.openvr.texType0.handle(nativeImageL);
         this.openvr.texType0.eColorSpace(VR.EColorSpace_ColorSpace_Gamma);
         this.openvr.texType0.eType(VR.ETextureType_TextureType_OpenGL);
@@ -128,7 +125,8 @@ public class OpenVRStereoRenderer extends VRRenderer {
             throw new RuntimeException(e);
         }
         RenderSystem.bindTexture(i);
-        nativeImageR = VLoader.createGLImage(buffer);
+        eglImageR = VLoader.createEGLImage(buffer);
+        nativeImageR = VLoader.createGLImage(eglImageR, width, height);
         this.openvr.texType1.handle(nativeImageR);
         this.openvr.texType1.eColorSpace(VR.EColorSpace_ColorSpace_Gamma);
         this.openvr.texType1.eType(VR.ETextureType_TextureType_OpenGL);
@@ -140,7 +138,10 @@ public class OpenVRStereoRenderer extends VRRenderer {
 
     public void endFrame() throws RenderConfigException {
         if (OpenVR.VRCompositor.Submit != 0) {
+            GL11.glFinish();
+            VLoader.flushFrame(nativeImageL, eglImageL);
             int i = VRCompositor_Submit(0, this.openvr.texType0, null, 0);
+            VLoader.flushFrame(nativeImageR, eglImageR);
             int j = VRCompositor_Submit(1, this.openvr.texType1, null, 0);
             VRCompositor_PostPresentHandoff();
 

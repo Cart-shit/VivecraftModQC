@@ -5,5 +5,7 @@ public class VLoader {
         System.loadLibrary("openvr_api");
     }
 
-    public static native int createGLImage(long buffer);
+    public static native long createEGLImage(long buffer);
+    public static native int createGLImage(long eglImage, int width, int height);
+    public static native void flushFrame(int nativeImage, long eglImage);
 }

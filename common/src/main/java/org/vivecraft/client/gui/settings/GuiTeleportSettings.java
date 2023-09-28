@@ -7,7 +7,7 @@ import org.vivecraft.client.gui.framework.GuiVROptionsBase;
 import org.vivecraft.client_vr.settings.VRSettings;
 
 public class GuiTeleportSettings extends GuiVROptionsBase {
-    private static finalVRSettings.VrOptions[] teleportSettings = new VRSettings.VrOptions[] {
+    private static final VRSettings.VrOptions[] teleportSettings = new VRSettings.VrOptions[] {
 //            VRSettings.VrOptions.SIMULATE_FALLING,
             VRSettings.VrOptions.LIMIT_TELEPORT
     };

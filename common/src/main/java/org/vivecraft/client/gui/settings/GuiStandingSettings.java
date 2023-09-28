@@ -5,9 +5,8 @@ import org.vivecraft.client.gui.framework.GuiVROptionsBase;
 import org.vivecraft.client.gui.framework.VROptionEntry;
 import org.vivecraft.client_vr.settings.VRSettings;
 
-public class GuiStandingSettings extends GuiVROptionsBase
-{
-    private VROptionEntry[] locomotionSettings = new VROptionEntry[] {
+public class GuiStandingSettings extends GuiVROptionsBase {
+    private finalVROptionEntry[] locomotionSettings = new VROptionEntry[] {
             new VROptionEntry(VRSettings.VrOptions.WALK_UP_BLOCKS),
             new VROptionEntry(VRSettings.VrOptions.VEHICLE_ROTATION),
 //            new VROptionEntry(VRSettings.VrOptions.WALK_MULTIPLIER),
@@ -26,13 +25,11 @@ public class GuiStandingSettings extends GuiVROptionsBase
             })
     };
 
-    public GuiStandingSettings(Screen guiScreen)
-    {
+    public GuiStandingSettings(Screen guiScreen) {
         super(guiScreen);
     }
 
-    public void init()
-    {
+    public void init() {
         this.vrTitle = "vivecraft.options.screen.standing";
         super.init(this.locomotionSettings, true);
         super.addDefaultButtons();

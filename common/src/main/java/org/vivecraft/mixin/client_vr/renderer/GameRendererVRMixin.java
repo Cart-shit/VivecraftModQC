@@ -264,14 +264,14 @@ public abstract class GameRendererVRMixin
                 this.vivecraft$minClipDistance, this.vivecraft$clipDistance));
         } else if (vivecraft$DATA_HOLDER.currentPass == RenderPass.SCOPEL
             || vivecraft$DATA_HOLDER.currentPass == RenderPass.SCOPER) {
-            posestack.mulPoseMatrix(new Matrix4f().setPerspective(70f / 8f * 0.01745329238474369F, 1.0F, 0.05F, this.vivecraft$clipDistance));
+            posestack.mulPoseMatrix(new Matrix4f().setPerspective(70f / 8f * 0.01745329238474369F, 1.0F, this.vivecraft$minClipDistance, this.vivecraft$clipDistance));
         } else {
             if (this.zoom != 1.0F) {
                 posestack.translate(this.zoomX, -this.zoomY, 0.0D);
                 posestack.scale(this.zoom, this.zoom, 1.0F);
             }
             posestack.mulPoseMatrix(new Matrix4f().setPerspective((float) d * 0.01745329238474369F, (float) this.minecraft.getWindow().getScreenWidth()
-                / (float) this.minecraft.getWindow().getScreenHeight(), 0.05F, this.vivecraft$clipDistance));
+                / (float) this.minecraft.getWindow().getScreenHeight(), this.vivecraft$minClipDistance, this.vivecraft$clipDistance));
         }
         info.setReturnValue(posestack.last().pose());
     }
@@ -525,8 +525,7 @@ public abstract class GameRendererVRMixin
     @Override
     @Unique
     public void vivecraft$setupRVE() {
-        if (this.vivecraft$cached
-            && !(Xplat.isModLoaded("immersive_portals") && ImmersivePortalsHelper.isRenderingPortal())) {
+        if (this.vivecraft$cached) {
             VRData.VRDevicePose vrdata$vrdevicepose = vivecraft$DATA_HOLDER.vrPlayer.vrdata_world_render
                 .getEye(vivecraft$DATA_HOLDER.currentPass);
             Vec3 vec3 = vrdata$vrdevicepose.getPosition();
@@ -550,8 +549,7 @@ public abstract class GameRendererVRMixin
     @Override
     @Unique
     public void vivecraft$cacheRVEPos(LivingEntity e) {
-        if (this.minecraft.getCameraEntity() != null
-            && !(Xplat.isModLoaded("immersive_portals") && ImmersivePortalsHelper.isRenderingPortal())) {
+        if (this.minecraft.getCameraEntity() != null) {
             if (!this.vivecraft$cached) {
                 this.vivecraft$rveX = e.getX();
                 this.vivecraft$rveY = e.getY();
@@ -575,8 +573,7 @@ public abstract class GameRendererVRMixin
     @Override
     @Unique
     public void vivecraft$restoreRVEPos(LivingEntity e) {
-        if (e != null
-            && !(Xplat.isModLoaded("immersive_portals") && ImmersivePortalsHelper.isRenderingPortal())) {
+        if (e != null) {
             e.setPosRaw(this.vivecraft$rveX, this.vivecraft$rveY, this.vivecraft$rveZ);
             e.xOld = this.vivecraft$rvelastX;
             e.yOld = this.vivecraft$rvelastY;
@@ -618,7 +615,7 @@ public abstract class GameRendererVRMixin
         this.vivecraft$onfire = false;
 
         if (!this.minecraft.player.isSpectator() && !this.vivecraft$isInMenuRoom() && this.minecraft.player.isAlive()) {
-            Vec3 vec3 = vivecraft$DATA_HOLDER.vrPlayer.vrdata_world_render.getEye(vivecraft$DATA_HOLDER.currentPass).getPosition();
+            Vec3 vec3 = RenderHelper.getSmoothCameraPosition(vivecraft$DATA_HOLDER.currentPass, vivecraft$DATA_HOLDER.vrPlayer.vrdata_world_render);
             Triple<Float, BlockState, BlockPos> triple = VREffectsHelper.getNearOpaqueBlock(vec3, this.vivecraft$minClipDistance);
 
             if (triple != null && !Xevents.renderBlockOverlay(this.minecraft.player, new PoseStack(), triple.getMiddle(), triple.getRight())) {

@@ -3,7 +3,6 @@ package org.vivecraft.mixin.client.gui.screens;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.screens.*;
-import net.minecraft.client.renderer.PanoramaRenderer;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
@@ -63,11 +62,8 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
-    @Redirect(at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/PanoramaRenderer;render(FF)V"), method = "render")
-    public void maybeNoPanorama(PanoramaRenderer instance, float f, float g){
-        if (VRState.vrRunning && ClientDataHolderVR.getInstance().menuWorldRenderer.isReady()){
-            return;
-        }
-        instance.render(f, g);
+    @ModifyArg(at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/PanoramaRenderer;render(FF)V"), method = "render", index = 1)
+    public float vivecraft$maybeNoPanorama(float alpha) {
+        return VRState.vrRunning && ClientDataHolderVR.getInstance().menuWorldRenderer.isReady() ? 0.0F : alpha;
     }
 }

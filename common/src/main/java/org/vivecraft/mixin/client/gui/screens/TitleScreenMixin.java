@@ -29,45 +29,6 @@ public abstract class TitleScreenMixin extends Screen {
     @Unique
     private Button vivecraft$updateButton;
 
-    @Inject(at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/TitleScreen;addRenderableWidget(Lnet/minecraft/client/gui/components/events/GuiEventListener;)Lnet/minecraft/client/gui/components/events/GuiEventListener;", shift = At.Shift.AFTER, ordinal = 1), method = "createNormalMenuOptions")
-    public void vivecraft$initFullGame(CallbackInfo ci) {
-        vivecraft$addVRModeButton();
-    }
-
-    @Inject(at = @At("TAIL"), method = "createDemoMenuOptions")
-    public void vivecraft$initDemo(CallbackInfo ci) {
-        vivecraft$addVRModeButton();
-    }
-
-    @Unique
-    private void vivecraft$addVRModeButton() {
-
-        vivecraft$vrModeButton = new Button(
-            this.width / 2 + 104, this.height / 4 + 72,
-            56, 20,
-            Component.translatable("vivecraft.gui.vr", VRState.vrEnabled ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF),
-            (button) -> {
-                VRState.vrEnabled = !VRState.vrEnabled;
-                ClientDataHolderVR.getInstance().vrSettings.vrEnabled = VRState.vrEnabled;
-                ClientDataHolderVR.getInstance().vrSettings.saveOptions();
-                button.setMessage(Component.translatable("vivecraft.gui.vr", VRState.vrEnabled ? CommonComponents.OPTION_ON : CommonComponents.OPTION_OFF));
-            });
-
-        vivecraft$vrModeButton.visible = ClientDataHolderVR.getInstance().vrSettings.vrToggleButtonEnabled;
-
-        this.addRenderableWidget(vivecraft$vrModeButton);
-
-        vivecraft$updateButton = new Button(
-            this.width / 2 + 104, this.height / 4 + 96,
-            56, 20,
-            Component.translatable("vivecraft.gui.update"),
-            (button) -> minecraft.setScreen(new UpdateScreen()));
-
-        vivecraft$updateButton.visible = UpdateChecker.hasUpdate;
-
-        this.addRenderableWidget(vivecraft$updateButton);
-    }
-
     @Inject(at = @At("TAIL"), method = "render")
     public void vivecraft$renderToolTip(PoseStack poseStack, int i, int j, float f, CallbackInfo ci) {
         vivecraft$updateButton.visible = UpdateChecker.hasUpdate;

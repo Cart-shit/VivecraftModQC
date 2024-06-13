@@ -6,6 +6,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Tuple;
 import org.joml.Matrix4f;
+import org.lwjgl.opengl.EXTMemoryObject;
+import org.lwjgl.opengl.EXTMemoryObjectFD;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.openvr.HiddenAreaMesh;
 import org.lwjgl.openvr.HmdMatrix44;
@@ -90,22 +92,30 @@ public class OpenVRStereoRenderer extends VRRenderer {
         this.LeftEyeTextureId = GlStateManager._genTexture();
         int i = GlStateManager._getInteger(GL11.GL_TEXTURE_BINDING_2D);
         RenderSystem.bindTexture(this.LeftEyeTextureId);
+        int leftImage = VLoader.getImage(lwidth, lheight);
+        int leftMemObj = EXTMemoryObject.glCreateMemoryObjectsEXT();
+        EXTMemoryObjectFD.glImportMemoryFdEXT(leftMemObj, (long) lwidth * lheight * 4, EXTMemoryObjectFD.GL_HANDLE_TYPE_OPAQUE_FD_EXT, leftImage);
+        EXTMemoryObject.glTexStorageMem2DEXT(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, lwidth, lheight, leftMemObj, 0);
+
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GlStateManager._texImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, lwidth, lheight, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, null);
         RenderSystem.bindTexture(i);
-        this.openvr.texType0.handle(this.LeftEyeTextureId);
+        this.openvr.texType0.handle(leftImage);
         this.openvr.texType0.eColorSpace(VR.EColorSpace_ColorSpace_Gamma);
         this.openvr.texType0.eType(VR.ETextureType_TextureType_OpenGL);
 
         this.RightEyeTextureId = GlStateManager._genTexture();
         i = GlStateManager._getInteger(GL11.GL_TEXTURE_BINDING_2D);
         RenderSystem.bindTexture(this.RightEyeTextureId);
+        int rightImage = VLoader.getImage(lwidth, lheight);
+        int rightMemObj = EXTMemoryObject.glCreateMemoryObjectsEXT();
+        EXTMemoryObjectFD.glImportMemoryFdEXT(rightMemObj, (long) lwidth * lheight * 4, EXTMemoryObjectFD.GL_HANDLE_TYPE_OPAQUE_FD_EXT, rightImage);
+        EXTMemoryObject.glTexStorageMem2DEXT(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, lwidth, lheight, rightMemObj, 0);
+
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GlStateManager._texImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, lwidth, lheight, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, null);
         RenderSystem.bindTexture(i);
-        this.openvr.texType1.handle(this.RightEyeTextureId);
+        this.openvr.texType1.handle(rightImage);
         this.openvr.texType1.eColorSpace(VR.EColorSpace_ColorSpace_Gamma);
         this.openvr.texType1.eType(VR.ETextureType_TextureType_OpenGL);
 

@@ -6,4 +6,5 @@ public class VLoader {
     }
 
     public static native void setEGLGlobal();
+    public static native int getImage(int width, int height);
 }

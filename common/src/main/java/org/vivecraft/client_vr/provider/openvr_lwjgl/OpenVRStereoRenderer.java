@@ -9,6 +9,7 @@ import org.joml.Matrix4f;
 import org.lwjgl.opengl.EXTMemoryObject;
 import org.lwjgl.opengl.EXTMemoryObjectFD;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL21;
 import org.lwjgl.openvr.HiddenAreaMesh;
 import org.lwjgl.openvr.HmdMatrix44;
 import org.lwjgl.openvr.OpenVR;
@@ -22,6 +23,8 @@ import org.vivecraft.client_vr.render.RenderConfigException;
 import org.vivecraft.client_vr.render.RenderPass;
 import org.vivecraft.util.VLoader;
 
+import static org.lwjgl.opengl.EXTMemoryObject.GL_LINEAR_TILING_EXT;
+import static org.lwjgl.opengl.EXTMemoryObject.GL_TEXTURE_TILING_EXT;
 import static org.lwjgl.openvr.VRCompositor.VRCompositor_PostPresentHandoff;
 import static org.lwjgl.openvr.VRCompositor.VRCompositor_Submit;
 import static org.lwjgl.openvr.VRSystem.*;
@@ -89,37 +92,37 @@ public class OpenVRStereoRenderer extends VRRenderer {
     }
 
     public void createRenderTexture(int lwidth, int lheight) {
+        VLoader.setEGLGlobal();
+
         this.LeftEyeTextureId = GlStateManager._genTexture();
         int i = GlStateManager._getInteger(GL11.GL_TEXTURE_BINDING_2D);
         RenderSystem.bindTexture(this.LeftEyeTextureId);
-        int leftImage = VLoader.getImage(lwidth, lheight);
+        int[] leftImage = VLoader.getImage(lwidth, lheight);
         int leftMemObj = EXTMemoryObject.glCreateMemoryObjectsEXT();
-        EXTMemoryObjectFD.glImportMemoryFdEXT(leftMemObj, (long) lwidth * lheight * 4, EXTMemoryObjectFD.GL_HANDLE_TYPE_OPAQUE_FD_EXT, leftImage);
-        EXTMemoryObject.glTexStorageMem2DEXT(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, lwidth, lheight, leftMemObj, 0);
-
+        EXTMemoryObjectFD.glImportMemoryFdEXT(leftMemObj, (long) lwidth * lheight * 4, EXTMemoryObjectFD.GL_HANDLE_TYPE_OPAQUE_FD_EXT, leftImage[1]);
+        GL21.glTexParameteri(GL11.GL_TEXTURE_2D, GL_TEXTURE_TILING_EXT, GL_LINEAR_TILING_EXT);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        EXTMemoryObject.glTexStorageMem2DEXT(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, lwidth, lheight, leftMemObj, 0);
         RenderSystem.bindTexture(i);
-        this.openvr.texType0.handle(leftImage);
+        this.openvr.texType0.handle(leftImage[0]);
         this.openvr.texType0.eColorSpace(VR.EColorSpace_ColorSpace_Gamma);
         this.openvr.texType0.eType(VR.ETextureType_TextureType_OpenGL);
 
         this.RightEyeTextureId = GlStateManager._genTexture();
         i = GlStateManager._getInteger(GL11.GL_TEXTURE_BINDING_2D);
         RenderSystem.bindTexture(this.RightEyeTextureId);
-        int rightImage = VLoader.getImage(lwidth, lheight);
+        int[] rightImage = VLoader.getImage(lwidth, lheight);
         int rightMemObj = EXTMemoryObject.glCreateMemoryObjectsEXT();
-        EXTMemoryObjectFD.glImportMemoryFdEXT(rightMemObj, (long) lwidth * lheight * 4, EXTMemoryObjectFD.GL_HANDLE_TYPE_OPAQUE_FD_EXT, rightImage);
-        EXTMemoryObject.glTexStorageMem2DEXT(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, lwidth, lheight, rightMemObj, 0);
-
+        EXTMemoryObjectFD.glImportMemoryFdEXT(rightMemObj, (long) lwidth * lheight * 4, EXTMemoryObjectFD.GL_HANDLE_TYPE_OPAQUE_FD_EXT, rightImage[1]);
+        GL21.glTexParameteri(GL11.GL_TEXTURE_2D, GL_TEXTURE_TILING_EXT, GL_LINEAR_TILING_EXT);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
         RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        EXTMemoryObject.glTexStorageMem2DEXT(GL11.GL_TEXTURE_2D, 1, GL11.GL_RGBA8, lwidth, lheight, rightMemObj, 0);
         RenderSystem.bindTexture(i);
-        this.openvr.texType1.handle(rightImage);
+        this.openvr.texType1.handle(rightImage[0]);
         this.openvr.texType1.eColorSpace(VR.EColorSpace_ColorSpace_Gamma);
         this.openvr.texType1.eType(VR.ETextureType_TextureType_OpenGL);
-
-        VLoader.setEGLGlobal();
     }
 
     public boolean endFrame(RenderPass eye) {
@@ -128,6 +131,7 @@ public class OpenVRStereoRenderer extends VRRenderer {
 
     public void endFrame() throws RenderConfigException {
         if (OpenVR.VRCompositor.Submit != 0) {
+            GL11.glFinish();
             int i = VRCompositor_Submit(0, this.openvr.texType0, null, 0);
             int j = VRCompositor_Submit(1, this.openvr.texType1, null, 0);
             VRCompositor_PostPresentHandoff();

@@ -2,6 +2,8 @@ package org.vivecraft.mixin.client;
 
 import net.minecraft.client.ResourceLoadStateTracker;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +20,10 @@ public abstract class ResourceLoadStateTrackerMixin {
     @Nullable
     private ResourceLoadStateTracker.ReloadState reloadState;
 
+    @Shadow
+    @Final
+    private static Logger LOGGER;
+
     @Inject(at = @At("TAIL"), method = "finishReload")
     void vivecraft$initializeVR(CallbackInfo ci) {
         if (reloadState != null && reloadState.reloadReason == ResourceLoadStateTracker.ReloadReason.INITIAL) {
@@ -31,7 +37,7 @@ public abstract class ResourceLoadStateTrackerMixin {
                     ClientDataHolderVR.getInstance().vrSettings.saveOptions();
                 }
             } catch (Exception exception) {
-                exception.printStackTrace();
+                LOGGER.warn(exception.getMessage());
             }
         }
     }

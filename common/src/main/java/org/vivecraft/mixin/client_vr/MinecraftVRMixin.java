@@ -8,11 +8,11 @@ import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.shaders.ProgramManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
-import com.mojang.math.Matrix4f;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.*;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.*;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -20,13 +20,13 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.RenderBuffers;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.packs.PackResources;
 import net.minecraft.server.packs.resources.ReloadableResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
@@ -38,6 +38,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
@@ -47,10 +48,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.vivecraft.client.VRPlayersClient;
 import org.vivecraft.client.VivecraftVRMod;
-import org.vivecraft.client.Xplat;
 import org.vivecraft.client.extensions.RenderTargetExtension;
 import org.vivecraft.client.gui.VivecraftClickEvent;
 import org.vivecraft.client.gui.screens.ErrorScreen;
@@ -63,8 +62,6 @@ import org.vivecraft.client_vr.ClientDataHolderVR;
 import org.vivecraft.client_vr.VRState;
 import org.vivecraft.client_vr.extensions.*;
 import org.vivecraft.client_vr.gameplay.screenhandlers.GuiHandler;
-import org.vivecraft.client_vr.gameplay.screenhandlers.KeyboardHandler;
-import org.vivecraft.client_vr.gameplay.screenhandlers.RadialHandler;
 import org.vivecraft.client_vr.gameplay.trackers.TelescopeTracker;
 import org.vivecraft.client_vr.menuworlds.MenuWorldDownloader;
 import org.vivecraft.client_vr.menuworlds.MenuWorldExporter;
@@ -73,12 +70,9 @@ import org.vivecraft.client_vr.render.RenderConfigException;
 import org.vivecraft.client_vr.render.RenderPass;
 import org.vivecraft.client_vr.render.VRFirstPersonArmSwing;
 import org.vivecraft.client_vr.render.VRShaders;
-import org.vivecraft.client_vr.render.helpers.RenderHelper;
-import org.vivecraft.client_vr.render.helpers.VRPassHelper;
 import org.vivecraft.client_vr.settings.VRHotkeys;
 import org.vivecraft.client_vr.settings.VRSettings;
 import org.vivecraft.client_xr.render_pass.RenderPassManager;
-import org.vivecraft.client_xr.render_pass.WorldRenderPass;
 import org.vivecraft.common.utils.math.Vector3;
 import org.vivecraft.mod_compat_vr.optifine.OptifineHelper;
 
@@ -96,7 +90,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
     private boolean vivecraft$lastClick;
 
     @Unique
-    private ItemStack vivecraft$itemInHand; //Captured item
+    private int vivecraft$currentHand = 0;
 
     @Unique
     private long vivecraft$mirroNotifyStart;
@@ -177,6 +171,10 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
 
     @Shadow
     @Final
+    private RenderBuffers renderBuffers;
+
+    @Shadow
+    @Final
     private EntityRenderDispatcher entityRenderDispatcher;
 
     @Shadow
@@ -199,7 +197,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
     public abstract Entity getCameraEntity();
 
     @Shadow
-    protected abstract void renderFpsMeter(PoseStack poseStack, ProfileResults fpsPieResults2);
+    protected abstract void renderFpsMeter(GuiGraphics guiGraphics, ProfileResults profileResults);
 
     @Shadow
     public abstract void tick();
@@ -228,7 +226,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
 
         // register a resource reload listener, to reload the menu world
         resourceManager.registerReloadListener((ResourceManagerReloadListener) resourceManager -> {
-            List<String> newPacks = resourceManager.listPacks().map(PackResources::getName).toList();
+            List<String> newPacks = resourceManager.listPacks().map(PackResources::packId).toList();
             if ((vivecraft$resourcepacks == null || !vivecraft$resourcepacks.equals(newPacks)) &&
                 ClientDataHolderVR.getInstance().menuWorldRenderer != null
                 && ClientDataHolderVR.getInstance().menuWorldRenderer.isReady()) {
@@ -246,17 +244,17 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
 
     // on first resource load finished
     @Inject(at = @At("HEAD"), method = {
-        "method_24040", // fabric
-        "lambda$new$2"} // forge
+        "method_53522", // fabric
+        "lambda$new$6"} // forge
         , remap = false)
     public void vivecraft$initVROnLaunch(CallbackInfo ci) {
         // set initial resourcepacks
-        vivecraft$resourcepacks = resourceManager.listPacks().map(PackResources::getName).toList();
+        vivecraft$resourcepacks = resourceManager.listPacks().map(PackResources::packId).toList();
 
         if (OptifineHelper.isOptifineLoaded() && ClientDataHolderVR.getInstance().menuWorldRenderer != null && ClientDataHolderVR.getInstance().menuWorldRenderer.isReady()) {
             // with optifine this texture somehow fails to load, so manually reload it
             try {
-                textureManager.getTexture(Gui.GUI_ICONS_LOCATION).load(resourceManager);
+                textureManager.getTexture(Gui.CROSSHAIR_SPRITE).load(resourceManager);
             } catch (IOException e) {
                 // if there was an error, just reload everything
                 reloadResourcePacks();
@@ -264,22 +262,8 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
         }
     }
 
-    @Inject(at = @At("TAIL"), method = "<init>")
-    private void vivecraft$showGarbageCollectorScreenFabric(CallbackInfo ci) {
-        if ("fabric".equals(Xplat.getModloader())) {
-            vivecraft$showGarbageCollectorScreen();
-        }
-    }
-
-    @Inject(at = @At("TAIL"), method = "lambda$new$1", remap = false, require = 0, expect = 0)
-    private void vivecraft$showGarbageCollectorScreenForge(CallbackInfo ci) {
-        if ("forge".equals(Xplat.getModloader())) {
-            vivecraft$showGarbageCollectorScreen();
-        }
-    }
-
-    @Unique
-    private void vivecraft$showGarbageCollectorScreen() {
+    @Inject(at = @At("TAIL"), method = "onGameLoadFinished")
+    private void vivecraft$showGarbageCollectorScreen(CallbackInfo ci) {
         // set the Garbage collector screen here, when it got reset after loading, but don't set it when using quickplay, because it would be removed after loading has finished
         if (VRState.vrEnabled && !ClientDataHolderVR.getInstance().incorrectGarbageCollector.isEmpty()
             && !(screen instanceof LevelLoadingScreen
@@ -387,6 +371,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
             RenderPassManager.setGUIRenderPass();
             RenderSystem.depthMask(true);
             RenderSystem.colorMask(true, true, true, true);
+            RenderSystem.defaultBlendFunc();
             this.mainRenderTarget.clear(Minecraft.ON_OSX);
             this.mainRenderTarget.bindWrite(true);
 
@@ -399,138 +384,6 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
             return false;
         } else {
             return renderLevel;
-        }
-    }
-
-    @Inject(at = @At(value = "INVOKE", target = "Lnet/minecraft/util/profiling/ProfilerFiller;pop()V", ordinal = 4, shift = At.Shift.AFTER), method = "runTick", locals = LocalCapture.CAPTURE_FAILHARD)
-    public void vivecraft$renderVRPasses(boolean renderLevel, CallbackInfo ci, long nanoTime) {
-        if (VRState.vrRunning) {
-            // still rendering
-            this.profiler.push("gameRenderer");
-
-            this.profiler.push("VR guis");
-
-            // some mods mess with the depth mask?
-            RenderSystem.depthMask(true);
-
-            this.profiler.push("gui cursor");
-            // draw cursor on Gui Layer
-            if (this.screen != null || !mouseHandler.isMouseGrabbed()) {
-                PoseStack poseStack = RenderSystem.getModelViewStack();
-                poseStack.pushPose();
-                poseStack.setIdentity();
-                poseStack.translate(0.0f, 0.0f, -2000.0f);
-                RenderSystem.applyModelViewMatrix();
-
-                int x = (int) (Minecraft.getInstance().mouseHandler.xpos() * (double) Minecraft.getInstance().getWindow().getGuiScaledWidth() / (double) Minecraft.getInstance().getWindow().getScreenWidth());
-                int y = (int) (Minecraft.getInstance().mouseHandler.ypos() * (double) Minecraft.getInstance().getWindow().getGuiScaledHeight() / (double) Minecraft.getInstance().getWindow().getScreenHeight());
-                ((GuiExtension) this.gui).vivecraft$drawMouseMenuQuad(x, y);
-
-                poseStack.popPose();
-                RenderSystem.applyModelViewMatrix();
-            }
-
-            this.profiler.popPush("fps pie");
-            // draw debug pie
-            vivecraft$drawProfiler();
-
-            // pop pose that we pushed before the gui
-            RenderSystem.getModelViewStack().popPose();
-            RenderSystem.applyModelViewMatrix();
-
-            // generate mipmaps
-            // TODO: does this do anything?
-            mainRenderTarget.bindRead();
-            ((RenderTargetExtension) mainRenderTarget).vivecraft$genMipMaps();
-            mainRenderTarget.unbindRead();
-
-            this.profiler.popPush("2D Keyboard");
-            float actualPartialTicks = this.pause ? this.pausePartialTick : this.timer.partialTick;
-
-            if (KeyboardHandler.Showing
-                && !ClientDataHolderVR.getInstance().vrSettings.physicalKeyboard) {
-                this.mainRenderTarget = KeyboardHandler.Framebuffer;
-                this.mainRenderTarget.clear(Minecraft.ON_OSX);
-                this.mainRenderTarget.bindWrite(true);
-                RenderHelper.drawScreen(actualPartialTicks, KeyboardHandler.UI, new PoseStack());
-            }
-
-            this.profiler.popPush("Radial Menu");
-            if (RadialHandler.isShowing()) {
-                this.mainRenderTarget = RadialHandler.Framebuffer;
-                this.mainRenderTarget.clear(Minecraft.ON_OSX);
-                this.mainRenderTarget.bindWrite(true);
-                RenderHelper.drawScreen(actualPartialTicks, RadialHandler.UI, new PoseStack());
-            }
-            this.profiler.pop();
-            this.vivecraft$checkGLError("post 2d ");
-
-            // done with guis
-            this.profiler.pop();
-
-            // render the different vr passes
-            List<RenderPass> list = ClientDataHolderVR.getInstance().vrRenderer.getRenderPasses();
-            ClientDataHolderVR.getInstance().isFirstPass = true;
-            for (RenderPass renderpass : list) {
-                ClientDataHolderVR.getInstance().currentPass = renderpass;
-
-                switch (renderpass) {
-                    case LEFT, RIGHT -> RenderPassManager.setWorldRenderPass(WorldRenderPass.stereoXR);
-                    case CENTER -> RenderPassManager.setWorldRenderPass(WorldRenderPass.center);
-                    case THIRD -> RenderPassManager.setWorldRenderPass(WorldRenderPass.mixedReality);
-                    case SCOPEL -> RenderPassManager.setWorldRenderPass(WorldRenderPass.leftTelescope);
-                    case SCOPER -> RenderPassManager.setWorldRenderPass(WorldRenderPass.rightTelescope);
-                    case CAMERA -> RenderPassManager.setWorldRenderPass(WorldRenderPass.camera);
-                }
-
-                this.profiler.push("Eye:" + ClientDataHolderVR.getInstance().currentPass);
-                this.profiler.push("setup");
-                this.mainRenderTarget.bindWrite(true);
-                this.profiler.pop();
-                VRPassHelper.renderSingleView(renderpass, actualPartialTicks, nanoTime, renderLevel);
-                this.profiler.pop();
-
-                if (ClientDataHolderVR.getInstance().grabScreenShot) {
-                    boolean flag;
-
-                    if (list.contains(RenderPass.CAMERA)) {
-                        flag = renderpass == RenderPass.CAMERA;
-                    } else if (list.contains(RenderPass.CENTER)) {
-                        flag = renderpass == RenderPass.CENTER;
-                    } else {
-                        flag = ClientDataHolderVR.getInstance().vrSettings.displayMirrorLeftEye ? renderpass == RenderPass.LEFT
-                                                                                                : renderpass == RenderPass.RIGHT;
-                    }
-
-                    if (flag) {
-                        RenderTarget rendertarget = this.mainRenderTarget;
-
-                        if (renderpass == RenderPass.CAMERA) {
-                            rendertarget = ClientDataHolderVR.getInstance().vrRenderer.cameraFramebuffer;
-                        }
-
-                        this.mainRenderTarget.unbindWrite();
-                        Utils.takeScreenshot(rendertarget);
-                        this.window.updateDisplay();
-                        ClientDataHolderVR.getInstance().grabScreenShot = false;
-                    }
-                }
-
-                ClientDataHolderVR.getInstance().isFirstPass = false;
-            }
-            // now we are done with rendering
-            this.profiler.pop();
-
-            ClientDataHolderVR.getInstance().vrPlayer.postRender(actualPartialTicks);
-            this.profiler.push("Display/Reproject");
-
-            try {
-                ClientDataHolderVR.getInstance().vrRenderer.endFrame();
-            } catch (RenderConfigException exception) {
-                VRSettings.logger.error(exception.toString());
-            }
-            this.profiler.pop();
-            this.vivecraft$checkGLError("post submit ");
         }
     }
 
@@ -552,10 +405,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
     }
 
     // the VR runtime handles the frame limit, no need to manually limit it 60fps
-    @ModifyConstant(constant = @Constant(longValue = 16), method = {
-        "doLoadLevel", // fabric
-        "doLoadLevel(Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Function;ZLnet/minecraft/client/Minecraft$ExperimentalDialogType;Z)V" // forge
-    }, expect = 0)
+    @ModifyConstant(constant = @Constant(longValue = 16), method = "doWorldLoad", expect = 0)
     private long vivecraft$noWaitOnLevelLoadFabric(long constant) {
         if (VRState.vrRunning) {
             return 0L;
@@ -611,22 +461,23 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
         }
     }
 
-    @ModifyVariable(at = @At(value = "STORE", ordinal = 0), method = "startUseItem")
-    public ItemStack vivecraft$handItemStore(ItemStack itemInHand) {
-        this.vivecraft$itemInHand = itemInHand;
-        return itemInHand;
-    }
-
-    @Inject(at = @At(value = "FIELD", target = "Lnet/minecraft/client/Minecraft;hitResult:Lnet/minecraft/world/phys/HitResult;", ordinal = 1), method = "startUseItem", locals = LocalCapture.CAPTURE_FAILHARD)
-    public void vivecraft$activeHandSend(CallbackInfo ci, InteractionHand[] var1, int var2, int var3, InteractionHand interactionHand) {
-        if (VRState.vrRunning && (ClientDataHolderVR.getInstance().vrSettings.seated || !TelescopeTracker.isTelescope(vivecraft$itemInHand))) {
-            ClientNetworking.sendActiveHand((byte) interactionHand.ordinal());
-        }
+    @Inject(at = @At("HEAD"), method = "startUseItem")
+    private void vivecraft$resetHand(CallbackInfo ci) {
+        vivecraft$currentHand = 0;
     }
 
     @Redirect(at = @At(value = "FIELD", target = "Lnet/minecraft/client/Minecraft;hitResult:Lnet/minecraft/world/phys/HitResult;", ordinal = 1), method = "startUseItem")
-    public HitResult vivecraft$activeHand2(Minecraft instance) {
-        if (!VRState.vrRunning || ClientDataHolderVR.getInstance().vrSettings.seated || !TelescopeTracker.isTelescope(vivecraft$itemInHand)) {
+    public HitResult vivecraft$activeHand(Minecraft instance) {
+        boolean isTelescope = false;
+        if (VRState.vrRunning) {
+            InteractionHand interactionHand = InteractionHand.values()[vivecraft$currentHand++];
+            ItemStack itemInHand = this.player.getItemInHand(interactionHand);
+            isTelescope = TelescopeTracker.isTelescope(itemInHand);
+            if (ClientDataHolderVR.getInstance().vrSettings.seated || !isTelescope) {
+                ClientNetworking.sendActiveHand((byte) interactionHand.ordinal());
+            }
+        }
+        if (!VRState.vrRunning || ClientDataHolderVR.getInstance().vrSettings.seated || !isTelescope) {
             return instance.hitResult;
         }
         return null;
@@ -652,10 +503,10 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
                 ClientDataHolderVR.getInstance().vrSettings.lastUpdate = UpdateChecker.newestVersion;
                 ClientDataHolderVR.getInstance().vrSettings.saveOptions();
                 ClientDataHolderVR.getInstance().showedUpdateNotification = true;
-                this.gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.updateAvailable", new TextComponent(UpdateChecker.newestVersion).withStyle(ChatFormatting.ITALIC, ChatFormatting.GREEN))
+                this.gui.getChat().addMessage(Component.translatable("vivecraft.messages.updateAvailable", Component.literal(UpdateChecker.newestVersion).withStyle(ChatFormatting.ITALIC, ChatFormatting.GREEN))
                     .withStyle(style -> style
                         .withClickEvent(new VivecraftClickEvent(VivecraftClickEvent.VivecraftAction.OPEN_SCREEN, new UpdateScreen()))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TranslatableComponent("vivecraft.messages.click")))));
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("vivecraft.messages.click")))));
             }
         }
 
@@ -673,7 +524,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
 
                 if (ClientDataHolderVR.getInstance().vrPlayer.teleportWarning) {
                     if (showMessage) {
-                        this.gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.noserverplugin"));
+                        this.gui.getChat().addMessage(Component.translatable("vivecraft.messages.noserverplugin"));
                     }
                     ClientDataHolderVR.getInstance().vrPlayer.teleportWarning = false;
 
@@ -682,7 +533,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
                 }
                 if (ClientDataHolderVR.getInstance().vrPlayer.vrSwitchWarning) {
                     if (showMessage) {
-                        this.gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.novrhotswitchinglegacy"));
+                        this.gui.getChat().addMessage(Component.translatable("vivecraft.messages.novrhotswitchinglegacy"));
                     }
                     ClientDataHolderVR.getInstance().vrPlayer.vrSwitchWarning = false;
                 }
@@ -752,7 +603,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
                         VRSettings.logger.info("Saving to " + file2.getAbsolutePath());
 
                         if (isLocalServer()) {
-                            final Level level = getSingleplayerServer().getLevel(player.level.dimension());
+                            final Level level = getSingleplayerServer().getLevel(player.level().dimension());
                             CompletableFuture<Throwable> completablefuture = getSingleplayerServer().submit(() -> {
                                 try {
                                     MenuWorldExporter.saveAreaToFile(level, blockpos.getX() - offset, blockpos.getZ() - offset, size, size, blockpos.getY(), file2);
@@ -766,12 +617,12 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
                             error = completablefuture.get();
                         } else {
                             MenuWorldExporter.saveAreaToFile(level, blockpos.getX() - offset, blockpos.getZ() - offset, size, size, blockpos.getY(), file2);
-                            gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.menuworldexportclientwarning"));
+                            gui.getChat().addMessage(Component.translatable("vivecraft.messages.menuworldexportclientwarning"));
                         }
 
                         if (error == null) {
-                            gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.menuworldexportcomplete.1", size));
-                            gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.menuworldexportcomplete.2", file2.getAbsolutePath()));
+                            gui.getChat().addMessage(Component.translatable("vivecraft.messages.menuworldexportcomplete.1", size));
+                            gui.getChat().addMessage(Component.translatable("vivecraft.messages.menuworldexportcomplete.2", file2.getAbsolutePath()));
                         }
                         break;
                     }
@@ -783,7 +634,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
                 error = throwable;
             } finally {
                 if (error != null) {
-                    gui.getChat().addMessage(new TranslatableComponent("vivecraft.messages.menuworldexporterror", error.getMessage()));
+                    gui.getChat().addMessage(Component.translatable("vivecraft.messages.menuworldexporterror", error.getMessage()));
                 }
             }
         }
@@ -792,7 +643,11 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
         for (int i = 0; i < VivecraftVRMod.INSTANCE.keyQuickCommands.length; i++) {
             if (VivecraftVRMod.INSTANCE.keyQuickCommands[i].consumeClick()) {
                 String command = ClientDataHolderVR.getInstance().vrSettings.vrQuickCommands[i];
-                this.player.chat(command);
+                if (command.startsWith("/")) {
+                    this.player.connection.sendCommand(command.substring(1));
+                } else {
+                    this.player.connection.sendChat(command);
+                }
             }
         }
     }
@@ -893,17 +748,17 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
             int screenX = ((WindowExtension) (Object) this.window).vivecraft$getActualScreenWidth();
             int screenY = ((WindowExtension) (Object) this.window).vivecraft$getActualScreenHeight();
             RenderSystem.viewport(0, 0, screenX, screenY);
-            Matrix4f matrix4f = Matrix4f.orthographic(0.0F, (float) screenX,
-                0.0F, (float) screenY, 1000.0F, 3000.0F);
-            RenderSystem.setProjectionMatrix(matrix4f);
+            Matrix4f matrix4f = new Matrix4f().setOrtho(0.0F, (float) screenX,
+                screenY, 0.0F, 1000.0F, 3000.0F);
+            RenderSystem.setProjectionMatrix(matrix4f, VertexSorting.ORTHOGRAPHIC_Z);
             RenderSystem.getModelViewStack().pushPose();
             RenderSystem.getModelViewStack().setIdentity();
             RenderSystem.getModelViewStack().translate(0, 0, -2000);
             RenderSystem.applyModelViewMatrix();
             RenderSystem.setShaderFogStart(Float.MAX_VALUE);
 
-            PoseStack p = new PoseStack();
-            p.scale(3, 3, 3);
+            GuiGraphics guiGraphics = new GuiGraphics((Minecraft) (Object) this, renderBuffers.bufferSource());
+            guiGraphics.pose().scale(3, 3, 3);
             RenderSystem.clear(256, ON_OSX);
 
             if (this.vivecraft$mirrorNotifyClear) {
@@ -922,9 +777,10 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
             int k = 12;
 
             for (String s : arraylist) {
-                this.font.draw(p, s, 1.0F, (float) j, 16777215);
+                guiGraphics.drawString(this.font, s, 1, j, 16777215);
                 j += 12;
             }
+            guiGraphics.flush();
             RenderSystem.getModelViewStack().popPose();
         }
     }
@@ -969,14 +825,17 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
             Minecraft.getInstance().getSoundManager().reload();
         }
         resizeDisplay();
-        window.updateVsync(options.enableVsync);
+        window.updateVsync(options.enableVsync().get());
     }
 
     @Unique
-    private void vivecraft$drawProfiler() {
+    @Override
+    public void vivecraft$drawProfiler() {
         if (this.fpsPieResults != null) {
             this.profiler.push("fpsPie");
-            this.renderFpsMeter(new PoseStack(), this.fpsPieResults);
+            GuiGraphics guiGraphics = new GuiGraphics((Minecraft) (Object) this, renderBuffers.bufferSource());
+            this.renderFpsMeter(guiGraphics, this.fpsPieResults);
+            guiGraphics.flush();
             this.profiler.pop();
         }
     }
@@ -1111,7 +970,6 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
             VRShaders.depthMaskShader.setSampler("firstPersonColor", RenderSystem.getShaderTexture(2));
         }
 
-        RenderSystem.setShader(() -> VRShaders.depthMaskShader);
         VRShaders.depthMaskShader.apply();
 
         Tesselator tesselator = RenderSystem.renderThreadTesselator();
@@ -1121,8 +979,7 @@ public abstract class MinecraftVRMixin implements MinecraftExtension {
         bufferbuilder.vertex(1, -1, 0.0).uv(2, 0).endVertex();
         bufferbuilder.vertex(1, 1, 0.0).uv(2, 2).endVertex();
         bufferbuilder.vertex(-1, 1, 0.0).uv(0, 2).endVertex();
-        bufferbuilder.end();
-        BufferUploader.end(bufferbuilder);
+        BufferUploader.draw(bufferbuilder.end());
         VRShaders.depthMaskShader.clear();
 
         ProgramManager.glUseProgram(0);

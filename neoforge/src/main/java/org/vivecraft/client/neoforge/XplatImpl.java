@@ -1,13 +1,9 @@
-package org.vivecraft.client.forge;
+package org.vivecraft.client.neoforge;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import io.netty.buffer.Unpooled;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
-import net.minecraft.network.protocol.common.custom.DiscardedPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -16,21 +12,20 @@ import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSpecialEffects;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.ForgeHooksClient;
-import net.minecraftforge.common.ForgeMod;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.fml.loading.FMLLoader;
-import net.minecraftforge.fml.loading.FMLPaths;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.fml.loading.LoadingModList;
+import net.neoforged.neoforge.client.textures.FluidSpriteCache;
+import net.neoforged.neoforge.common.NeoForgeMod;
 import org.vivecraft.client.Xplat;
 
 import java.nio.file.Path;
 
-public class XplatImpl {
+public class XplatImpl implements Xplat {
 
     public static boolean isModLoaded(String name) {
-        return FMLLoader.getLoadingModList().getModFileById(name) != null;
+        return LoadingModList.get().getModFileById(name) != null;
     }
 
     public static Path getConfigPath(String fileName) {
@@ -41,19 +36,19 @@ public class XplatImpl {
         return FMLEnvironment.dist == Dist.DEDICATED_SERVER;
     }
 
-    public static Xplat.ModLoader getModloader() {
-        return Xplat.ModLoader.FORGE;
+    public static ModLoader getModloader() {
+        return ModLoader.NEOFORGE;
     }
 
     public static String getModVersion() {
         if (isModLoadedSuccess()) {
-            return FMLLoader.getLoadingModList().getModFileById("vivecraft").versionString();
+            return LoadingModList.get().getModFileById("vivecraft").versionString();
         }
         return "no version";
     }
 
     public static boolean isModLoadedSuccess() {
-        return FMLLoader.getLoadingModList().getModFileById("vivecraft") != null;
+        return LoadingModList.get().getModFileById("vivecraft") != null;
     }
 
     public static boolean enableRenderTargetStencil(RenderTarget renderTarget) {
@@ -62,23 +57,15 @@ public class XplatImpl {
     }
 
     public static Path getJarPath() {
-        return FMLLoader.getLoadingModList().getModFileById("vivecraft").getFile().getSecureJar().getPath("/");
+        return LoadingModList.get().getModFileById("vivecraft").getFile().getSecureJar().getPath("/");
     }
 
     public static String getUseMethodName() {
-        return ObfuscationReflectionHelper.findMethod(
-            net.minecraft.world.level.block.state.BlockBehaviour.class,
-            "m_6227_",
-            net.minecraft.world.level.block.state.BlockState.class,
-            net.minecraft.world.level.Level.class,
-            net.minecraft.core.BlockPos.class,
-            net.minecraft.world.entity.player.Player.class,
-            net.minecraft.world.InteractionHand.class,
-            net.minecraft.world.phys.BlockHitResult.class).getName();
+        return "use";
     }
 
     public static TextureAtlasSprite[] getFluidTextures(BlockAndTintGetter level, BlockPos pos, FluidState fluidStateIn) {
-        return ForgeHooksClient.getFluidSprites(level, pos, fluidStateIn);
+        return FluidSpriteCache.getFluidSprites(level, pos, fluidStateIn);
     }
 
     public static Biome.ClimateSettings getBiomeClimateSettings(Biome biome) {
@@ -90,7 +77,7 @@ public class XplatImpl {
     }
 
     public static double getItemEntityReach(double baseRange, ItemStack itemStack, EquipmentSlot slot) {
-        var attributes = itemStack.getAttributeModifiers(slot).get(ForgeMod.ENTITY_REACH.get());
+        var attributes = itemStack.getAttributeModifiers(slot).get(NeoForgeMod.ENTITY_REACH.value());
         for (var a : attributes) {
             if (a.getOperation() == AttributeModifier.Operation.ADDITION) {
                 baseRange += a.getAmount();
@@ -111,10 +98,7 @@ public class XplatImpl {
     }
 
     public static void addNetworkChannel(ClientPacketListener listener, ResourceLocation resourceLocation) {
-        // Forge I really don't know why you are insisting on this being a DiscardedPayload
-        listener.send(new ServerboundCustomPayloadPacket(new DiscardedPayload(
-            new ResourceLocation("minecraft:register"),
-            new FriendlyByteBuf(Unpooled.buffer())
-                .writeBytes(resourceLocation.toString().getBytes()))));
+        // neoforge does that automatically, since we use their networking system
+        // at least I have been told this
     }
 }

@@ -5,14 +5,9 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandlerRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -22,7 +17,7 @@ import net.minecraft.world.level.biome.BiomeSpecialEffects;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.FluidState;
 import org.vivecraft.client.Xplat;
-import org.vivecraft.fabric.mixin.world.level.biome.BiomeAccessor;
+import org.vivecraft.mixin.client_vr.world.level.biome.BiomeAccessor;
 
 import java.nio.file.Path;
 
@@ -105,21 +100,5 @@ public class XplatImpl {
 
     public static double getItemEntityReach(double baseRange, ItemStack itemStack, EquipmentSlot slot) {
         return baseRange;
-    }
-
-    public static void addNetworkChannel(ClientPacketListener listener, ResourceLocation resourceLocation) {
-        listener.send(new ServerboundCustomPayloadPacket(new CustomPacketPayload() {
-            public static final ResourceLocation ID = new ResourceLocation("minecraft:register");
-
-            @Override
-            public void write(FriendlyByteBuf friendlyByteBuf) {
-                friendlyByteBuf.writeBytes(resourceLocation.toString().getBytes());
-            }
-
-            @Override
-            public ResourceLocation id() {
-                return ID;
-            }
-        }));
     }
 }

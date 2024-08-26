@@ -2,8 +2,9 @@ package org.vivecraft.client_vr;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFW;
@@ -35,7 +36,7 @@ public class VRState {
         }
         try {
             if (OptifineHelper.isOptifineLoaded() && OptifineHelper.isAntialiasing()) {
-                throw new RenderConfigException(Component.translatable("vivecraft.messages.incompatiblesettings").getString(), Component.translatable("vivecraft.messages.optifineaa"));
+                throw new RenderConfigException(new TranslatableComponent("vivecraft.messages.incompatiblesettings").getString(), new TranslatableComponent("vivecraft.messages.optifineaa"));
             }
 
             vrInitialized = true;
@@ -44,7 +45,7 @@ public class VRState {
                 // make sure the lwjgl version is the right one
                 // TODO: move this into the init, does mean all callocs need to be done later
                 // check that the right lwjgl version is loaded that we ship the openvr part of
-                if (!Version.getVersion().startsWith("3.3.2")) {
+                if (!Version.getVersion().startsWith("3.2.2")) {
                     String suppliedJar = "";
                     try {
                         suppliedJar = new File(Version.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getName();
@@ -52,7 +53,7 @@ public class VRState {
                         VRSettings.logger.error("couldn't check lwjgl source:", e);
                     }
 
-                    throw new RenderConfigException("VR Init Error", Component.translatable("vivecraft.messages.rendersetupfailed", I18n.get("vivecraft.messages.invalidlwjgl", Version.getVersion(), "3.3.2", suppliedJar), "OpenVR_LWJGL"));
+                    throw new RenderConfigException("VR Init Error", new TranslatableComponent("vivecraft.messages.rendersetupfailed", I18n.get("vivecraft.messages.invalidlwjgl", Version.getVersion(), "3.2.2", suppliedJar), "OpenVR_LWJGL"));
                 }
 
                 dh.vr = new MCOpenVR(Minecraft.getInstance(), dh);
@@ -60,11 +61,11 @@ public class VRState {
                 dh.vr = new NullVR(Minecraft.getInstance(), dh);
             }
             if (!dh.vr.init()) {
-                throw new RenderConfigException("VR Init Error", Component.translatable("vivecraft.messages.rendersetupfailed", dh.vr.initStatus, dh.vr.getName()));
+                throw new RenderConfigException("VR Init Error", new TranslatableComponent("vivecraft.messages.rendersetupfailed", dh.vr.initStatus, dh.vr.getName()));
             }
 
             dh.vrRenderer = dh.vr.createVRRenderer();
-            dh.vrRenderer.lastGuiScale = Minecraft.getInstance().options.guiScale().get();
+            dh.vrRenderer.lastGuiScale = Minecraft.getInstance().options.guiScale;
 
             dh.vrRenderer.setupRenderConfiguration();
             RenderPassManager.setVanillaRenderPass();
@@ -127,9 +128,9 @@ public class VRState {
             vrEnabled = false;
             destroyVR(true);
             e.printStackTrace();
-            MutableComponent component = Component.literal(e.getClass().getName() + (e.getMessage() == null ? "" : ": " + e.getMessage()));
+            MutableComponent component = new TextComponent(e.getClass().getName() + (e.getMessage() == null ? "" : ": " + e.getMessage()));
             for (StackTraceElement element : e.getStackTrace()) {
-                component.append(Component.literal("\n" + element.toString()));
+                component.append(new TextComponent("\n" + element.toString()));
             }
             Minecraft.getInstance().setScreen(new ErrorScreen("VR Init Error", component));
         }

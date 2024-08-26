@@ -1,14 +1,8 @@
 package org.vivecraft.client.forge;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import io.netty.buffer.Unpooled;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
-import net.minecraft.network.protocol.common.custom.DiscardedPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.ItemStack;
@@ -24,6 +18,7 @@ import net.minecraftforge.fml.loading.FMLLoader;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.vivecraft.client.Xplat;
+import org.vivecraft.mixin.client_vr.world.level.biome.BiomeAccessor;
 
 import java.nio.file.Path;
 
@@ -82,15 +77,15 @@ public class XplatImpl {
     }
 
     public static Biome.ClimateSettings getBiomeClimateSettings(Biome biome) {
-        return biome.getModifiedClimateSettings();
+        return ((BiomeAccessor) (Object) biome).getClimateSettings();
     }
 
     public static BiomeSpecialEffects getBiomeEffects(Biome biome) {
-        return biome.getModifiedSpecialEffects();
+        return biome.getSpecialEffects();
     }
 
     public static double getItemEntityReach(double baseRange, ItemStack itemStack, EquipmentSlot slot) {
-        var attributes = itemStack.getAttributeModifiers(slot).get(ForgeMod.ENTITY_REACH.get());
+        var attributes = itemStack.getAttributeModifiers(slot).get(ForgeMod.ATTACK_RANGE.get());
         for (var a : attributes) {
             if (a.getOperation() == AttributeModifier.Operation.ADDITION) {
                 baseRange += a.getAmount();
@@ -108,13 +103,5 @@ public class XplatImpl {
             }
         }
         return totalRange;
-    }
-
-    public static void addNetworkChannel(ClientPacketListener listener, ResourceLocation resourceLocation) {
-        // Forge I really don't know why you are insisting on this being a DiscardedPayload
-        listener.send(new ServerboundCustomPayloadPacket(new DiscardedPayload(
-            new ResourceLocation("minecraft:register"),
-            new FriendlyByteBuf(Unpooled.buffer())
-                .writeBytes(resourceLocation.toString().getBytes()))));
     }
 }

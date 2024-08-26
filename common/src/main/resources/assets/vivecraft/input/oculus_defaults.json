@@ -142,7 +142,7 @@
             }
           },
           "mode": "button",
-          "path": "/user/hand/left/input/application_menu"
+          "path": "/user/hand/left/input/y"
         },
         {
           "inputs": {
@@ -151,7 +151,7 @@
             }
           },
           "mode": "button",
-          "path": "/user/hand/left/input/y"
+          "path": "/user/hand/left/input/x"
         }
       ]
     },
@@ -243,7 +243,7 @@
             }
           },
           "mode": "button",
-          "path": "/user/hand/left/input/x"
+          "path": "/user/hand/left/input/trigger"
         },
         {
           "inputs": {
@@ -261,52 +261,46 @@
             }
           },
           "mode": "button",
-          "path": "/user/hand/left/input/trigger"
+          "path": "/user/hand/right/input/a"
         },
         {
           "inputs": {
             "click": {
               "output": "/actions/ingame/in/key.jump"
+            },
+            "position": {
+              "output": "/actions/ingame/in/vivecraft.key.freemovestrafe"
             }
-               },
-               "mode" : "button",
-               "path" : "/user/hand/right/input/a"
-            },
-            {
-               "inputs" : {
-                  "position" : {
-                     "output" : "/actions/ingame/in/vivecraft.key.freemovestrafe"
-                  }
-               },
-               "mode" : "joystick",
-               "path" : "/user/hand/left/input/joystick"
-            },
-            {
-               "inputs" : {
-                  "position" : {
-                     "output" : "/actions/ingame/in/vivecraft.key.rotateaxis"
-                  }
-               },
-               "mode" : "joystick",
-               "path" : "/user/hand/right/input/joystick"
-            },
-            {
-               "inputs" : {
-                  "click" : {
-                     "output" : "/actions/ingame/in/key.sneak"
-                  }
-               },
-               "mode" : "toggle_button",
-               "path" : "/user/hand/right/input/joystick"
-            },
-            {
-               "inputs" : {
-                  "click": {
+          },
+          "mode": "joystick",
+          "path": "/user/hand/left/input/joystick"
+        },
+        {
+          "inputs": {
+            "position": {
+              "output": "/actions/ingame/in/vivecraft.key.rotateaxis"
+            }
+          },
+          "mode": "joystick",
+          "path": "/user/hand/right/input/joystick"
+        },
+        {
+          "inputs": {
+            "click": {
+              "output": "/actions/ingame/in/key.sneak"
+            }
+          },
+          "mode": "toggle_button",
+          "path": "/user/hand/right/input/joystick"
+        },
+        {
+          "inputs": {
+            "pull": {
               "output": "/actions/ingame/in/vivecraft.key.teleportfallback"
             }
           },
-          "mode": "button",
-          "path": "/user/hand/left/input/x"
+          "mode": "trigger",
+          "path": "/user/hand/left/input/trigger"
         }
       ]
     },

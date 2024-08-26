@@ -55,7 +55,7 @@ dependencies {
     // modCompileOnly("maven.modrinth:rubidium:0.5.6")
     // modCompileOnly("maven.modrinth:oculus:1.18.2-1.6.4")
 
-    forgeRuntimeLibrary("org.lwjgl:lwjgl-openvr:3.2.2")
+    forgeRuntimeLibrary("org.lwjgl:lwjgl-openvr:3.3.1")
     forgeRuntimeLibrary("org.lwjgl:lwjgl-openvr:3.2.2:natives-linux")
     forgeRuntimeLibrary("org.lwjgl:lwjgl-openvr:3.2.2:natives-macos")
     forgeRuntimeLibrary("org.lwjgl:lwjgl-openvr:3.2.2:natives-windows")
